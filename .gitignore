@@ -1,0 +1,11 @@
+# Ignorar dependências do Node em qualquer pasta
+node_modules/
+
+# Ignorar banco de dados e ficheiros de ambiente
+database.sqlite
+.env
+
+# Ignorar logs e pastas de sistema
+npm-debug.log*
+.vscode/
+.DS_Store
