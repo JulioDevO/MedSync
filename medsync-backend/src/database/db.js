@@ -1,27 +1,36 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const mysql = require("mysql2");
 
-const dbPath = path.resolve(__dirname, '../../database.sqlite');
-
-const db = new sqlite3.Database(dbPath, (err) => {
-    if (err) {
-    console.error('❌ Erro ao conectar ao banco de dados:', err.message);
-    } else {
-    console.log('📦 Conectado ao banco de dados SQLite com sucesso!');
-    }
+const pool = mysql.createPool({
+  host: "localhost",
+  user: "root",
+  password: "1234",
+  database: "medsync",
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
 });
 
-db.serialize(() => {
-    db.run(`
-        CREATE TABLE IF NOT EXISTS pacientes(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT NOT NULL,
-            cpf TEXT UNIQUE NOT NULL,
-            telefone TEXT,
-            convenio TEXT
-        )
-    `);
-    console.log('✅ Tabela "pacientes" verificada/criada e pronta para uso.');    
-});
+const db = pool.promise();
+
+const criarTabela = async () => {
+  try {
+    await db.query(
+      `CREATE TABLE IF NOT EXISTS pacientes(
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                nome VARCHAR(255) NOT NULL,
+                cpf VARCHAR(14) UNIQUE NOT NULL,
+                telefone VARCHAR(20),
+                convenio VARCHAR(100)
+            )`,
+    );
+    console.log(
+      '✅ Tabela "pacientes" verificada/criada no MySQL com sucesso!',
+    );
+  } catch (error) {
+    console.error("❌ Erro ao criar tabela no MySQL:", error.message);
+  }
+};
+
+criarTabela();
 
 module.exports = db;
