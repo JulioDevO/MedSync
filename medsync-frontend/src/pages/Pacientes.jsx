@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Sidebar from "../components/Sidebar";
 import { Search, Plus, Edit2, User, X, Trash2, AlertTriangle } from "lucide-react";
 
@@ -6,14 +6,54 @@ export default function Pacientes() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
-  const pacientes = [
-    { id: 1, nome: "João Silva", cpf: "123.456.789-00", telefone: "(83) 98888-0000", convenio: "Unimed" },
-    { id: 2, nome: "Maria Oliveira", cpf: "987.654.321-11", telefone: "(83) 99999-1111", convenio: "Particular" },
-  ];
+  const [ pacientes, setPacientes ] = useState([]);
+  const [ nome, setNome ] = useState("");
+  const [ cpf, setCpf ] = useState("");
+  const [ telefone, setTelefone ] = useState("");
+  const [ convenio, setConvenio ] = useState("");
 
-  const handleSalvarPaciente = (e) => {
-    e.preventDefault(); 
-    setIsModalOpen(false); 
+  const buscarPacientes = async () => {
+    try{
+      const resposta = await fetch("http://localhost:3333/api/pacientes");
+      const dados = await resposta.json();
+      setPacientes(dados);
+    }catch{
+      console.error("Erro ao buscar dados da API:", erro);
+    }
+  };
+
+  useEffect(() => {
+        buscarPacientes();
+      }, []);
+
+  const handleSalvarPaciente = async (e) => {
+    e.preventDefault();
+
+    const novoPaciente = { nome, cpf, telefone, convenio };
+
+    try{
+      const resposta = await fetch("http://localhost:3333/api/pacientes", {
+        method: "post",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(novoPaciente)
+      });
+
+      if (resposta.ok) {
+        setIsModalOpen(false);
+        buscarPacientes();
+
+        setNome("");
+        setCpf("");
+        setTelefone("");
+        setConvenio("");
+      } else {
+        alert("Erro aoo cadastrar paciente. Verifique os dados.");
+      }
+    }catch(erro){
+      console.error("Erro na comunicação com a API: ", erro);
+    }
   };
 
   const confirmarExclusao = () => {
@@ -116,21 +156,21 @@ export default function Pacientes() {
               <form onSubmit={handleSalvarPaciente} className="p-6 space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Nome Completo</label>
-                  <input type="text" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all" placeholder="Ex: Ana Carolina Silva" />
+                  <input type="text" value={nome} onChange={(e) => setNome(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all" placeholder="Ex: Ana Carolina Silva" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">CPF</label>
-                    <input type="text" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all" placeholder="000.000.000-00" />
+                    <input type="text" value={cpf} onChange={(e) => setCpf(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all" placeholder="000.000.000-00" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Telefone</label>
-                    <input type="text" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all" placeholder="(00) 00000-0000" />
+                    <input type="text" value={telefone} onChange={(e) => setTelefone(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all" placeholder="(00) 00000-0000" />
                   </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Convênio</label>
-                  <select className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all text-slate-700">
+                  <select value={convenio} onChange={(e) => setConvenio(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all text-slate-700">
                     <option value="">Selecione o convênio...</option>
                     <option value="Particular">Particular</option>
                     <option value="Unimed">Unimed</option>
