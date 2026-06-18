@@ -10,7 +10,11 @@ export default function Pacientes() {
   const [ nome, setNome ] = useState("");
   const [ cpf, setCpf ] = useState("");
   const [ telefone, setTelefone ] = useState("");
-  const [ convenio, setConvenio ] = useState("");
+  const [ convenio, setConvenio ] = useState("Particular");
+  const [ pacienteExclusao, setPacienteExclusao ] = useState(null);
+  const [ idEdicao, setIdEdicao ] = useState(null);
+
+  const [ erroFormulario, setErroFormulario ] = useState("");
 
   const buscarPacientes = async () => {
     try{
@@ -26,14 +30,58 @@ export default function Pacientes() {
         buscarPacientes();
       }, []);
 
+    // Função para formatar CPF: 000.000.000-00
+    const formatarCPF = (valor) => {
+    return valor
+      .replace(/\D/g, "") 
+      .replace(/(\d{3})(\d)/, "$1.$2") 
+      .replace(/(\d{3})(\d)/, "$1.$2") 
+      .replace(/(\d{3})(\d{1,2})/, "$1-$2") 
+      .replace(/(-\d{2})\d+?$/, "$1"); 
+  };
+
+  // Função para formatar Telefone: (00) 00000-0000
+  const formatarTelefone = (valor) => {
+    return valor
+      .replace(/\D/g, "") 
+      .replace(/(\d{2})(\d)/, "($1) $2") 
+      .replace(/(\d{5})(\d)/, "$1-$2") 
+      .replace(/(-\d{4})\d+?$/, "$1"); 
+  };
+
+
   const handleSalvarPaciente = async (e) => {
     e.preventDefault();
 
+    //VALIDAÇÃO: campo vazio
+    if (!nome || !cpf || !telefone || !convenio) {
+      setErroFormulario("Por favor, preencha todos os campos antes de salvar.");
+      return;
+    }
+
+    //VALIDAÇÃO: CPF 14 caracteres
+    if (cpf.length !== 14) {
+      setErroFormulario("O CPF está incompleto. Digite todos os 11 números.");
+      return;
+    }
+
+    //VALIDAÇÃO: Telefone 14 caracteres
+    if (telefone.length !== 15) {
+      setErroFormulario("O telefone está incompleto. Não esqueça o DDD.");
+      return;
+    }
+
     const novoPaciente = { nome, cpf, telefone, convenio };
 
-    try{
-      const resposta = await fetch("http://localhost:3333/api/pacientes", {
-        method: "post",
+    try {
+      const url = idEdicao
+      ? `http://localhost:3333/api/pacientes/${idEdicao}` 
+      : "http://localhost:3333/api/pacientes";
+
+      const metodo = idEdicao ? "PUT" : "POST";
+
+      const resposta = await fetch(url, {
+        method: metodo, 
         headers: {
           "Content-Type": "application/json"
         },
@@ -48,16 +96,35 @@ export default function Pacientes() {
         setCpf("");
         setTelefone("");
         setConvenio("");
+        setIdEdicao(null);
+        setErroFormulario("");
       } else {
-        alert("Erro aoo cadastrar paciente. Verifique os dados.");
+        setErroFormulario("Erro no servidor ao salvar paciente. Tente novamente.");
       }
-    }catch(erro){
-      console.error("Erro na comunicação com a API: ", erro);
+    } catch (Erro) {
+      console.erro("Erro na comunicação com a API:", erro);
+      setErroFormulario("Erro de conexão. Verifique se o servidor está rodando.");
     }
   };
 
-  const confirmarExclusao = () => {
-    setIsDeleteModalOpen(false);
+  const confirmarExclusao = async() => {
+    if (!pacienteExclusao) return;
+
+    try {
+      const resposta = await fetch(`http://localhost:3333/api/pacientes/${pacienteExclusao.id}`, {
+        method: "DELETE",
+      });
+
+      if (resposta.ok) {
+        setIsDeleteModalOpen(false);
+        setPacienteExclusao(null);
+        buscarPacientes();
+      } else {
+        alert("Erro ao excluir paciente.");
+      }
+    } catch (erro) {
+      console.error("Erro na comunicação com a API>", erro);
+    }
   };
 
   return (
@@ -70,7 +137,15 @@ export default function Pacientes() {
             Gestão de Pacientes
           </h2>
           <button 
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => {
+              setNome("");
+              setCpf("");
+              setTelefone("");
+              setConvenio("");
+              setIdEdicao(null);
+              setErroFormulario("");
+              setIsModalOpen(true);
+            }}
             className="flex items-center bg-[#0a1128] text-white px-5 py-2.5 rounded-xl hover:bg-[#162244] transition-colors shadow-sm"
           >
             <Plus className="w-5 h-5 mr-2" />
@@ -122,14 +197,25 @@ export default function Pacientes() {
                     <td className="px-6 py-4">
                       <div className="flex justify-center space-x-2">
                         <button 
-                          onClick={() => setIsModalOpen(true)}
+                          onClick={() => {
+                            setNome(p.nome);
+                            setCpf(p.cpf);
+                            setTelefone(p.telefone);
+                            setConvenio(p.convenio);
+                            setIdEdicao(p.id); 
+                            setErroFormulario("");
+                            setIsModalOpen(true);
+                          }}
                           className="p-2 text-slate-400 hover:text-blue-600 transition-colors"
                           title="Editar Paciente"
                         >
                           <Edit2 className="w-5 h-5" />
                         </button>
                         <button 
-                          onClick={() => setIsDeleteModalOpen(true)}
+                          onClick={() =>{
+                            setPacienteExclusao(p);
+                            setIsDeleteModalOpen(true);
+                          }}
                           className="p-2 text-slate-400 hover:text-rose-600 transition-colors"
                           title="Excluir Paciente"
                         >
@@ -154,6 +240,14 @@ export default function Pacientes() {
               </div>
 
               <form onSubmit={handleSalvarPaciente} className="p-6 space-y-4">
+
+                {erroFormulario && (
+                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center text-sm font-medium text-rose-700 animate-in fade-in duration-200">
+                    <AlertTriangle className="w-5 h-5 mr-2 flex-shrink-0" />
+                    {erroFormulario}
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Nome Completo</label>
                   <input type="text" value={nome} onChange={(e) => setNome(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all" placeholder="Ex: Ana Carolina Silva" />
@@ -161,11 +255,11 @@ export default function Pacientes() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">CPF</label>
-                    <input type="text" value={cpf} onChange={(e) => setCpf(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all" placeholder="000.000.000-00" />
+                    <input type="text" value={cpf} onChange={(e) => setCpf(formatarCPF(e.target.value))} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all" placeholder="000.000.000-00" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Telefone</label>
-                    <input type="text" value={telefone} onChange={(e) => setTelefone(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all" placeholder="(00) 00000-0000" />
+                    <input type="text" value={telefone} onChange={(e) => setTelefone(formatarTelefone(e.target.value))} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all" placeholder="(00) 00000-0000" />
                   </div>
                 </div>
                 <div>
@@ -177,7 +271,7 @@ export default function Pacientes() {
                   </select>
                 </div>
                 <div className="flex justify-end space-x-3 pt-6 mt-6 border-t border-slate-100">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-slate-600 font-medium hover:bg-slate-100 rounded-xl transition-colors">Cancelar</button>
+                  <button type="button" onClick={() => {setIsModalOpen(false); setErroFormulario("");}} className="px-5 py-2.5 text-slate-600 font-medium hover:bg-slate-100 rounded-xl transition-colors">Cancelar</button>
                   <button type="submit" className="px-5 py-2.5 bg-[#0a1128] text-white font-medium hover:bg-[#162244] rounded-xl shadow-sm transition-colors">Salvar Paciente</button>
                 </div>
               </form>
