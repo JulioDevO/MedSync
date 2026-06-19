@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const db = require("./database/db");
 const pacienteRoutes = require("./routes/pacienteRoutes");
+const agendamentoRoutes = require("./routes/agendamentoRoutes");
 
 const app = express();
 
@@ -9,6 +10,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/api/pacientes", pacienteRoutes);
+app.use("/api/agendamentos", agendamentoRoutes);
 
 app.get("/api/status", (req, res) => {
   return res.json({

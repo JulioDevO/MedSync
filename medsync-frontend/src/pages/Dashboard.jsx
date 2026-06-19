@@ -1,6 +1,6 @@
 import { 
   CalendarDays, ClipboardCopy, Users, LayoutDashboard,
-  Bell, Search, Clock, ArrowUpRight, CheckCircle2
+  Bell, Clock, ArrowUpRight, CheckCircle2
 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 
@@ -23,14 +23,13 @@ export default function Dashboard() {
       <Sidebar /> 
       <main className="flex-1 flex flex-col overflow-hidden">
         
-        <header className="h-20 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-8 z-10">
-          <div className="flex items-center bg-slate-100 rounded-lg px-4 py-2 w-96 border border-slate-200 focus-within:border-[#0a1128] transition-colors">
-            <Search className="w-5 h-5 text-slate-400 mr-2" />
-            <input 
-              type="text" 
-              placeholder="Buscar pacientes, consultas..." 
-              className="bg-transparent border-none focus:outline-none w-full text-sm text-slate-700 placeholder:text-slate-400"
-            />
+        {/* CABEÇALHO GLOBAL ATUALIZADO */}
+        <header className="h-20 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-8 z-10 shrink-0">
+          
+          {/* Título da Página realocado para o cabeçalho */}
+          <div>
+            <h2 className="text-2xl font-bold text-slate-800">Visão Geral</h2>
+            <p className="text-sm text-slate-500 mt-0.5">Acompanhe os indicadores da clínica hoje.</p>
           </div>
 
           <div className="flex items-center space-x-6">
@@ -52,11 +51,6 @@ export default function Dashboard() {
 
         <div className="flex-1 overflow-auto p-8 bg-gradient-to-br from-[#F0FFFF]/30 to-[#ADD8E6]/20">
           
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold text-slate-800 mb-2">Visão Geral</h2>
-            <p className="text-slate-600">Acompanhe os indicadores da clínica hoje.</p>
-          </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
               <div className="flex items-start justify-between mb-4">
@@ -99,7 +93,7 @@ export default function Dashboard() {
             
             <div className="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
               <div>
-                <h3 className="text-lg font-bold text-slate-800 mb-1">Distribuição de Convénios</h3>
+                <h3 className="text-lg font-bold text-slate-800 mb-1">Distribuição de Convênios</h3>
                 <p className="text-xs text-slate-400 mb-6">Divisão de atendimentos ativos</p>
                 
                 <div className="space-y-4">

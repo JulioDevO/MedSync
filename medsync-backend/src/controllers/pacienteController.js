@@ -73,15 +73,24 @@ exports.atualizarPaciente = async (req, res) => {
     return res.status(400).json({ erro: "Todos os campos são obrigatórios" });
   }
 
-  const sql = "UPDATE pacientes SET nome = ?, cpf = ?, telefone = ?, convenio = ? WHERE id = ?";
+  const sql =
+    "UPDATE pacientes SET nome = ?, cpf = ?, telefone = ?, convenio = ? WHERE id = ?";
 
   try {
-    const [resultado] = await db.query(sql, [nome, cpf, telefone, convenio, id]);
+    const [resultado] = await db.query(sql, [
+      nome,
+      cpf,
+      telefone,
+      convenio,
+      id,
+    ]);
 
-    if (resultado.affectedRows === 0){
+    if (resultado.affectedRows === 0) {
       return res.status(404).json({ erro: "Paciente não encontrado." });
     }
-    return res.status(200).json({ mensagem: "Paciente atualizado com sucesso!" });
+    return res
+      .status(200)
+      .json({ mensagem: "Paciente atualizado com sucesso!" });
   } catch (err) {
     return res.status(500).json({
       erro: "Erro ao atualizar paciente.",
