@@ -19,8 +19,15 @@ exports.cadastrarPaciente = async (req, res) => {
       pacienteId: resultado.insertId,
     });
   } catch (err) {
+    // CORREÇÃO AQUI: Tratamento específico para CPF duplicado
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ 
+        erro: "Este CPF já está cadastrado em outro paciente!" 
+      });
+    }
+
     return res.status(400).json({
-      erro: "Erro ao cadastrar. Verifique se o CPF já existe.",
+      erro: "Erro ao cadastrar.",
       detalhes: err.message,
     });
   }
@@ -50,15 +57,16 @@ exports.deletarPaciente = async (req, res) => {
   try {
     const [resultado] = await db.query(sql, [id]);
 
-    if (resultado.effectedRows === 0) {
-      return res.status(404).json({ erro: "paciente não encontrado." });
+    // Pequeno ajuste no nome da propriedade (afectedRows em vez de effectedRows)
+    if (resultado.affectedRows === 0) {
+      return res.status(404).json({ erro: "Paciente não encontrado." });
     }
     return res
       .status(200)
-      .json({ mensagem: "pacientes excluído com sucesso." });
+      .json({ mensagem: "Paciente excluído com sucesso." });
   } catch (err) {
     return res.status(500).json({
-      erro: "Erro ao excluir pacientes do banco de dados.",
+      erro: "Erro ao excluir paciente do banco de dados.",
       detalhes: err.message,
     });
   }
@@ -92,6 +100,11 @@ exports.atualizarPaciente = async (req, res) => {
       .status(200)
       .json({ mensagem: "Paciente atualizado com sucesso!" });
   } catch (err) {
+    // Também adicionei o tratamento de erro aqui, caso tente atualizar para um CPF que já existe
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ erro: "Este CPF já pertence a outro paciente!" });
+    }
+
     return res.status(500).json({
       erro: "Erro ao atualizar paciente.",
       detalhes: err.message,

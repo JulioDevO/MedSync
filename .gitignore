@@ -1,11 +1,34 @@
-# Ignorar dependências do Node em qualquer pasta
+# =========================
+# DEPENDÊNCIAS
+# =========================
 node_modules/
 
-# Ignorar banco de dados e ficheiros de ambiente
-database.sqlite
+# =========================
+# VARIÁVEIS DE AMBIENTE (CRÍTICO)
+# =========================
 .env
+.env.*
+!.env.example
 
-# Ignorar logs e pastas de sistema
+# =========================
+# BUILD DO FRONTEND
+# =========================
+dist/
+build/
+
+# =========================
+# BANCO DE DADOS LOCAL
+# =========================
+*.sqlite
+*.db
+
+# =========================
+# LOGS E CONFIGURAÇÕES DE SISTEMA
+# =========================
 npm-debug.log*
-.vscode/
+yarn-debug.log*
+yarn-error.log*
 .DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -67,65 +67,61 @@ export default function Pacientes() {
   };
 
   const handleSalvarPaciente = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    //VALIDAÇÃO: campo vazio
-    if (!nome || !cpf || !telefone || !convenio) {
-      setErroFormulario("Por favor, preencha todos os campos antes de salvar.");
-      return;
+  // VALIDAÇÕES (Mantive as suas, estão ótimas!)
+  if (!nome || !cpf || !telefone || !convenio) {
+    setErroFormulario("Por favor, preencha todos os campos antes de salvar.");
+    return;
+  }
+  if (cpf.length !== 14) {
+    setErroFormulario("O CPF está incompleto.");
+    return;
+  }
+  if (telefone.length !== 15) {
+    setErroFormulario("O telefone está incompleto.");
+    return;
+  }
+
+  const novoPaciente = { nome, cpf, telefone, convenio };
+
+  try {
+    const url = idEdicao
+      ? `http://localhost:3333/api/pacientes/${idEdicao}`
+      : "http://localhost:3333/api/pacientes";
+
+    const metodo = idEdicao ? "PUT" : "POST";
+
+    // 1. FAZ O FETCH PRIMEIRO
+    const resposta = await fetch(url, {
+      method: metodo,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(novoPaciente),
+    });
+
+    // 2. AGUARDA A RESPOSTA DO BACK-END
+    const dados = await resposta.json();
+
+    // 3. SE NÃO FOI OK, JOGA O ERRO PARA O CATCH
+    if (!resposta.ok) {
+      throw new Error(dados.erro || "Erro ao salvar paciente.");
     }
 
-    //VALIDAÇÃO: CPF 14 caracteres
-    if (cpf.length !== 14) {
-      setErroFormulario("O CPF está incompleto. Digite todos os 11 números.");
-      return;
-    }
+    // 4. SE CHEGOU AQUI, DEU TUDO CERTO!
+    setIsModalOpen(false);
+    buscarPacientes();
+    
+    // Limpa os campos
+    setNome(""); setCpf(""); setTelefone(""); setConvenio("");
+    setIdEdicao(null);
+    setErroFormulario("");
 
-    //VALIDAÇÃO: Telefone 14 caracteres
-    if (telefone.length !== 15) {
-      setErroFormulario("O telefone está incompleto. Não esqueça o DDD.");
-      return;
-    }
-
-    const novoPaciente = { nome, cpf, telefone, convenio };
-
-    try {
-      const url = idEdicao
-        ? `http://localhost:3333/api/pacientes/${idEdicao}`
-        : "http://localhost:3333/api/pacientes";
-
-      const metodo = idEdicao ? "PUT" : "POST";
-
-      const resposta = await fetch(url, {
-        method: metodo,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(novoPaciente),
-      });
-
-      if (resposta.ok) {
-        setIsModalOpen(false);
-        buscarPacientes();
-
-        setNome("");
-        setCpf("");
-        setTelefone("");
-        setConvenio("");
-        setIdEdicao(null);
-        setErroFormulario("");
-      } else {
-        setErroFormulario(
-          "Erro no servidor ao salvar paciente. Tente novamente.",
-        );
-      }
-    } catch (Erro) {
-      console.erro("Erro na comunicação com a API:", erro);
-      setErroFormulario(
-        "Erro de conexão. Verifique se o servidor está rodando.",
-      );
-    }
-  };
+  } catch (erro) {
+    // 5. EXIBE A MENSAGEM DO SERVIDOR OU A MENSAGEM PADRÃO
+    console.error("Erro na comunicação:", erro);
+    setErroFormulario(erro.message || "Erro de conexão com o servidor.");
+  }
+};
 
   const confirmarExclusao = async () => {
     if (!pacienteExclusao) return;

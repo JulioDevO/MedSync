@@ -1,1 +1,42 @@
 @import "tailwindcss";
+
+/* ============================================================
+   IMPRESSÃO — Estratégia: Portal fora do DOM do dashboard
+   O componente é renderizado via ReactDOM.createPortal() 
+   diretamente no <body>, fora de qualquer wrapper.
+   ============================================================ */
+
+/* Na tela: o portal fica invisível */
+#print-portal {
+  display: none;
+}
+
+@media print {
+  /* Esconde TODO o conteúdo normal da página */
+  body > *:not(#print-portal) {
+    display: none !important;
+  }
+
+  /* Mostra APENAS o portal de impressão */
+  #print-portal {
+    display: block !important;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Reset de impressão para garantir cores e backgrounds */
+  #print-portal * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Remove margens padrão do navegador na folha */
+  @page {
+    margin: 1.5cm 2cm;
+    size: A4 portrait;
+  }
+}

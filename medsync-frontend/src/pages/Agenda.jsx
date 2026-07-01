@@ -3,7 +3,7 @@ import Sidebar from "../components/Sidebar";
 import { 
   Plus, ChevronLeft, ChevronRight, Clock, MapPin, 
   LayoutList, CalendarDays, Video, Calendar as CalendarIcon, X, Bell,
-  CheckCircle, XCircle, Pencil // <-- Adicionado o ícone Pencil para edição
+  CheckCircle, XCircle, Pencil
 } from "lucide-react";
 
 import { format, addDays, subDays, startOfWeek, parseISO, isSameDay } from "date-fns";
@@ -12,37 +12,79 @@ import DatePicker, { registerLocale } from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 registerLocale("pt-BR", ptBR); 
 
+// NOVA IMPORTAÇÃO: O componente de pesquisa inteligente
+import Select from "react-select";
+import { useAuth } from "../context/AuthContext";
+
 export default function Agenda() {
   const [visaoAtual, setVisaoAtual] = useState("lista"); 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [agendamentosIniciais, setAgendamentosIniciais] = useState([]);
   const [dataReferencia, setDataReferencia] = useState(new Date());
 
-  // NOVO ESTADO: Guarda o ID do agendamento que está sendo editado (null se for um novo)
+  // NOVO ESTADO: Guardar os pacientes que vêm da base de dados
+  const [pacientesCadastrados, setPacientesCadastrados] = useState([]);
+
   const [idEdicao, setIdEdicao] = useState(null);
 
-  // Estados do Formulário
   const [paciente, setPaciente] = useState("");
   const [data, setData] = useState("");
   const [horario, setHorario] = useState("");
   const [tipo, setTipo] = useState("");
   const [modalidade, setModalidade] = useState("");
+  const { user, role, token } = useAuth();
+
+  // NOVA FUNÇÃO: Ir buscar a lista de pacientes
+  const buscarPacientes = async () => {
+    try {
+      const resposta = await fetch("http://localhost:3333/api/pacientes");
+      if (resposta.ok) {
+        setPacientesCadastrados(await resposta.json());
+      }
+    } catch (erro) {
+      console.error("Erro ao buscar pacientes:", erro);
+    }
+  };
 
   const buscarAgendamentos = async () => {
     try {
       const resposta = await fetch("http://localhost:3333/api/agendamentos");
       if (resposta.ok) {
-        const dados = await resposta.json();
-        setAgendamentosIniciais(dados);
+        setAgendamentosIniciais(await resposta.json());
       }
     } catch (erro) {
-      console.error("Erro ao buscar agendamentos da API:", erro);
+      console.error("Erro ao buscar agendamentos:", erro);
     }
   };
 
+  // Carrega tudo ao abrir a página
   useEffect(() => {
+    const buscarAgendamentos = async () => {
+      try {
+        // Trava de segurança: se não houver token, não faz a requisição
+        if (!token) return;
+
+        // Criamos a configuração com o token
+        const config = {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        };
+
+        // Passamos o 'config' como segundo parâmetro
+        const response = await fetch("http://localhost:3333/api/agendamentos", config);
+        
+        if (response.ok) {
+          const data = await response.json();
+          setAgendamentosIniciais(data); // ou o nome do estado que você usa
+        }
+      } catch (error) {
+        console.error("Erro ao buscar agendamentos:", error);
+      }
+    };
+
     buscarAgendamentos();
-  }, []);
+  }, [token]); // Não esqueça de colocar o token no array de dependências
 
   const fecharModal = () => {
     setIsModalOpen(false);
@@ -51,19 +93,17 @@ export default function Agenda() {
     setHorario("");
     setTipo("");
     setModalidade("");
-    setIdEdicao(null); // <-- Limpa o estado de edição ao fechar
+    setIdEdicao(null); 
   };
 
-  // NOVA FUNÇÃO: Abre o modal já preenchido com os dados do agendamento selecionado
   const abrirModalEdicao = (agendamento) => {
-    // Busca o objeto original vindo do banco para evitar distorções de formato
     const original = agendamentosIniciais.find(a => a.id === agendamento.id);
     if (!original) return;
 
     setIdEdicao(original.id);
     setPaciente(original.paciente);
-    setData(original.data.split('T')[0]); // Formata a data para o padrão do input (YYYY-MM-DD)
-    setHorario(original.horario.substring(0, 5)); // Formata o horário para o padrão do input (HH:MM)
+    setData(original.data.split('T')[0]); 
+    setHorario(original.horario.substring(0, 5)); 
     setTipo(original.tipo);
     setModalidade(original.modalidade);
     setIsModalOpen(true);
@@ -93,11 +133,18 @@ export default function Agenda() {
   const fimDaSemana = addDays(inicioDaSemana, 6);
   const textoPeriodo = `${format(inicioDaSemana, "dd", { locale: ptBR })} - ${format(fimDaSemana, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}`;
 
+  // 1. AQUI VOCÊ CRIA A LISTA FILTRADA
+  const agendamentosFiltrados = role === 'paciente' 
+    ? agendamentosIniciais.filter(ag => ag.paciente === user.nome) 
+    : agendamentosIniciais;
+
   const agendamentosDaSemana = diasDaSemana.map(dia => {
-    const consultasDoDia = agendamentosIniciais.filter(ag => {
+    // 2. AQUI VOCÊ MUDA PARA USAR A LISTA FILTRADA
+    const consultasDoDia = agendamentosFiltrados.filter(ag => { 
       const dataAg = parseISO(ag.data.split('T')[0]); 
       return isSameDay(dataAg, dia);
     }).map(ag => {
+      // ... (seu código de estilo continua igual daqui para baixo)
       const statusAtual = ag.status || "Confirmado";
       
       let style = { cor: "bg-emerald-500", bgCard: "bg-emerald-50", borderCard: "border-emerald-100", textCor: "text-emerald-700" };
@@ -130,12 +177,22 @@ export default function Agenda() {
 
   const diasComConsultaNaLista = agendamentosDaSemana.filter(d => d.consultas.length > 0);
 
-  // FUNÇÃO DE SALVAR INTELIGENTE: Decide se faz um POST (novo) ou PUT (edição)
   const handleSalvarAgendamento = async (e) => {
     e.preventDefault();
+    
+    if (role === 'medico') {
+        alert("Acesso negado: Médicos não podem alterar a agenda.");
+        return;
+    }
+
+    // Validação extra para garantir que escolheu um paciente
+    if (!paciente) {
+      alert("Por favor, selecione um paciente da lista.");
+      return;
+    }
+
     const agendamentoDados = { paciente, data, horario, tipo, modalidade };
 
-    // Configura os parâmetros dinamicamente baseado no estado idEdicao
     const url = idEdicao 
       ? `http://localhost:3333/api/agendamentos/${idEdicao}` 
       : "http://localhost:3333/api/agendamentos";
@@ -159,6 +216,30 @@ export default function Agenda() {
     } catch (erro) {
       alert("Erro de conexão com o servidor!");
     }
+  };
+
+  // TRADUTOR: Preparando os dados para o formato que o react-select exige
+  const opcoesDePacientes = pacientesCadastrados.map(p => ({
+    value: p.nome,
+    label: p.nome // Poderíamos colocar "p.nome - CPF" aqui se quiséssemos!
+  }));
+
+  // Estilização customizada para o react-select combinar com o Tailwind
+  const selectStyles = {
+    control: (base, state) => ({
+      ...base,
+      padding: '0.15rem',
+      borderRadius: '0.75rem',
+      borderColor: state.isFocused ? '#60a5fa' : '#e2e8f0',
+      boxShadow: state.isFocused ? '0 0 0 2px rgba(96, 165, 250, 0.5)' : 'none',
+      '&:hover': { borderColor: '#94a3b8' }
+    }),
+    option: (base, state) => ({
+      ...base,
+      backgroundColor: state.isSelected ? '#0a1128' : state.isFocused ? '#f1f5f9' : 'white',
+      color: state.isSelected ? 'white' : '#334155',
+      cursor: 'pointer'
+    })
   };
 
   return (
@@ -228,13 +309,17 @@ export default function Agenda() {
             </div>
 
             <div className="flex-1 flex justify-end items-center pr-2">
-              <button onClick={() => setIsModalOpen(true)} className="flex items-center bg-[#0a1128] text-white px-5 py-2.5 rounded-xl hover:bg-[#162244] transition-colors shadow-sm whitespace-nowrap">
-                <Plus className="w-5 h-5 mr-2" /> Novo Agendamento
-              </button>
+              {(role === 'admin' || role === 'paciente') && (
+                <button 
+                  onClick={() => setIsModalOpen(true)} 
+                  className="flex items-center bg-[#0a1128] text-white px-5 py-2.5 rounded-xl hover:bg-[#162244] transition-colors shadow-sm whitespace-nowrap"
+                >
+                  <Plus className="w-5 h-5 mr-2" /> {role === 'paciente' ? "Solicitar Consulta" : "Novo Agendamento"}
+                </button>
+              )}
             </div>
           </div>
 
-          {/* VISUALIZAÇÃO: EM LISTA */}
           {visaoAtual === "lista" && (
             <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
               {diasComConsultaNaLista.length === 0 ? (
@@ -272,8 +357,8 @@ export default function Agenda() {
                               <div className={`flex items-center text-sm font-medium ${agendamento.textCor} opacity-70`}>{agendamento.modalidade === "Online" ? <><Video className="w-4 h-4 mr-1.5" /> Google Meet</> : <><MapPin className="w-4 h-4 mr-1.5" /> Consultório</>}</div>
                             </div>
                             
-                            {/* AÇÕES EM LISTA */}
-                            {agendamento.status === "Confirmado" && (
+                            {/* Bloco protegido: apenas admin vê os botões de ação */}
+                            {role === 'admin' && agendamento.status === "Confirmado" && (
                               <div className="flex gap-4 mt-5 pt-4 border-t border-slate-200/40">
                                 <button 
                                   onClick={(e) => { e.stopPropagation(); handleAtualizarStatus(agendamento.id, "Realizado"); }}
@@ -288,7 +373,6 @@ export default function Agenda() {
                                   <XCircle className="w-4 h-4 mr-1.5" /> Cancelar Agendamento
                                 </button>
                                 
-                                {/* BOTÃO DE EDIÇÃO/REAGENDAMENTO */}
                                 <button 
                                   onClick={(e) => { e.stopPropagation(); abrirModalEdicao(agendamento); }}
                                   className="flex items-center text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors ml-auto border border-slate-200 hover:border-slate-300 px-2.5 py-1 rounded-lg bg-white shadow-sm"
@@ -327,8 +411,8 @@ export default function Agenda() {
                         <div className="flex justify-between items-start mb-1">
                           <p className={`text-xs font-bold ${consulta.textCor}`}>{consulta.horario}</p>
                           
-                          {/* ÍCONE DE EDIÇÃO MINI NA VISUALIZAÇÃO SEMANAl */}
-                          {consulta.status === "Confirmado" && (
+                          {/* Botão Editar protegido */}
+                          {role === 'admin' && consulta.status === "Confirmado" && (
                             <button 
                               onClick={(e) => { e.stopPropagation(); abrirModalEdicao(consulta); }} 
                               className="text-slate-400 hover:text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded"
@@ -345,8 +429,8 @@ export default function Agenda() {
                           {consulta.modalidade}
                         </p>
 
-                        {/* AÇÕES NA SEMANA */}
-                        {consulta.status === "Confirmado" && (
+                        {/* Botões de Ação protegidos */}
+                        {role === 'admin' && consulta.status === "Confirmado" && (
                           <div className="flex justify-end gap-2 mt-2 pt-2 border-t border-slate-200/40">
                             <button onClick={(e) => { e.stopPropagation(); handleAtualizarStatus(consulta.id, "Realizado"); }} className="text-indigo-600 hover:text-indigo-800 transition-colors" title="Realizado"><CheckCircle className="w-4 h-4" /></button>
                             <button onClick={(e) => { e.stopPropagation(); handleAtualizarStatus(consulta.id, "Cancelado"); }} className="text-rose-600 hover:text-rose-800 transition-colors" title="Cancelar"><XCircle className="w-4 h-4" /></button>
@@ -361,12 +445,10 @@ export default function Agenda() {
           )}
         </div>
 
-        {/* MODAL MULTIFUNÇÃO */}
         {isModalOpen && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
               <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50">
-                {/* TÍTULO DINÂMICO */}
                 <h3 className="text-xl font-bold text-slate-800">
                   {idEdicao ? "Editar Agendamento" : "Novo Agendamento"}
                 </h3>
@@ -376,24 +458,35 @@ export default function Agenda() {
               </div>
 
               <form onSubmit={handleSalvarAgendamento} className="p-6 space-y-4">
+                
+                {/* CAMPO ATUALIZADO: O Select Inteligente */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Paciente</label>
-                  <input required type="text" value={paciente} onChange={(e) => setPaciente(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="Ex: Ana Carolina" />
+                  <Select
+                    options={opcoesDePacientes}
+                    placeholder="Selecione ou digite o nome..."
+                    noOptionsMessage={() => "Nenhum paciente encontrado"}
+                    styles={selectStyles}
+                    value={opcoesDePacientes.find(op => op.value === paciente) || null}
+                    onChange={(opcao) => setPaciente(opcao ? opcao.value : "")}
+                    isClearable={true}
+                  />
                 </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Data</label>
-                    <input required type="date" value={data} onChange={(e) => setData(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                    <input required type="date" value={data} onChange={(e) => setData(e.target.value)} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Horário</label>
-                    <input required type="time" value={horario} onChange={(e) => setHorario(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                    <input required type="time" value={horario} onChange={(e) => setHorario(e.target.value)} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400" />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Tipo de Consulta</label>
-                    <select required value={tipo} onChange={(e) => setTipo(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400">
+                    <select required value={tipo} onChange={(e) => setTipo(e.target.value)} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400">
                       <option value="">Selecione...</option>
                       <option value="Consulta Inicial">Consulta Inicial</option>
                       <option value="Retorno">Retorno</option>
@@ -401,7 +494,7 @@ export default function Agenda() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Modalidade</label>
-                    <select required value={modalidade} onChange={(e) => setModalidade(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400">
+                    <select required value={modalidade} onChange={(e) => setModalidade(e.target.value)} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400">
                       <option value="">Selecione...</option>
                       <option value="Presencial">Presencial</option>
                       <option value="Online">Online (Telemedicina)</option>
@@ -410,7 +503,6 @@ export default function Agenda() {
                 </div>
                 <div className="flex justify-end space-x-3 pt-6 mt-6 border-t border-slate-100">
                   <button type="button" onClick={fecharModal} className="px-5 py-2.5 text-slate-600 font-medium hover:bg-slate-100 rounded-xl transition-colors">Cancelar</button>
-                  {/* TEXTO DO BOTÃO DINÂMICO */}
                   <button type="submit" className="px-5 py-2.5 bg-[#0a1128] text-white font-medium hover:bg-[#162244] rounded-xl shadow-sm transition-colors">
                     {idEdicao ? "Salvar Alterações" : "Confirmar Agenda"}
                   </button>
